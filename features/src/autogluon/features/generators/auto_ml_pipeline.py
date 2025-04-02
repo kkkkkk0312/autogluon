@@ -162,6 +162,37 @@ class AutoMLPipelineFeatureGenerator(PipelineFeatureGenerator):
 
     def _get_category_feature_generator(self):
         return CategoryFeatureGenerator()
+    
+    def get_pipeline_details(self):
+        import json
+
+        def safe_serialize(obj):
+            try:
+                json.dumps(obj)
+                return obj
+            except TypeError:
+                return str(obj)
+
+        details = []
+        for stage_generators in self.generators:  # nested list
+            for gen in stage_generators:
+                try:
+                    if hasattr(gen, "get_config"):
+                        config = gen.get_config()
+                    else:
+                        config = vars(gen)
+                    config = {k: safe_serialize(v) for k, v in config.items()}
+                except Exception as e:
+                    config = f"Error: {e}"
+                details.append({
+                    "name": type(gen).__name__,
+                    "config": config
+                })
+        return details
+
+
+
+
 
 
 class AutoMLInterpretablePipelineFeatureGenerator(AutoMLPipelineFeatureGenerator):

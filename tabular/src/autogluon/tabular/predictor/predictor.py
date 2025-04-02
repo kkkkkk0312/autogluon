@@ -392,6 +392,52 @@ class TabularPredictor:
     def path(self) -> str:
         """Path to directory where all models used by this Predictor are stored"""
         return self._learner.path
+    
+    def save_report(self, output_path: str = None):
+        import json
+        import os
+
+        leaderboard_df = self.leaderboard(silent=True)
+        best_model = leaderboard_df.iloc[0]["model"]
+        score_val = leaderboard_df.iloc[0]["score_val"]
+        fit_time = leaderboard_df.iloc[0]["fit_time"]
+
+        # 전처리 정보 가져오기
+        try:
+            fg_details = self._learner.feature_generator.get_pipeline_details()
+        except Exception:
+            fg_details = str(self._learner.feature_generator)
+
+        # 하이퍼파라미터 상세정보
+        try:
+            full_params = self._learner.get_model_hyperparameters_full(best_model)
+        except Exception:
+            full_params = self.model_hyperparameters(model=best_model, output_format="user")
+
+        report = {
+            "best_model": str(best_model),
+            "score_val": float(round(score_val, 5)),
+            "fit_time_sec": float(round(fit_time, 2)),
+            "leaderboard_top5": leaderboard_df.head(5).astype(str).to_dict(orient="records"),
+            "hyperparameters": full_params,
+            "feature_generator": self._learner.feature_generator.get_pipeline_details()
+                if hasattr(self._learner.feature_generator, "get_pipeline_details")
+                else str(self._learner.feature_generator),
+            "features": list(map(str, self.features())) if self.features is not None else [],
+            "problem_type": str(self.problem_type),
+            "eval_metric": str(getattr(self.eval_metric, 'name', str(self.eval_metric))),
+            "label_column": str(self.label),
+        }
+
+        if output_path is None:
+            output_path = os.path.join(self.path, "report.json")
+
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(report, f, indent=2, ensure_ascii=False)
+
+        print(f"✅ 리포트 저장 완료: {output_path}")
+
+
 
     @apply_presets(tabular_presets_dict, tabular_presets_alias)
     def fit(
@@ -1308,6 +1354,7 @@ class TabularPredictor:
 
         self._fit(ag_fit_kwargs=ag_fit_kwargs, ag_post_fit_kwargs=ag_post_fit_kwargs)
 
+        self.save_report()
         return self
 
     def _fit(self, ag_fit_kwargs: dict, ag_post_fit_kwargs: dict):

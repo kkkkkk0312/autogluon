@@ -117,6 +117,14 @@ class AbstractTabularLearner(AbstractLearner):
     @property
     def feature_metadata_in(self):
         return self.feature_generator.feature_metadata_in
+    
+    def get_model_hyperparameters_full(self, model_name: str):
+        """
+        Returns the full hyperparameter configuration of a specific model.
+        """
+        model = self.load_model(model_name)
+        return model.params if hasattr(model, "params") else {}
+
 
     @property
     def feature_generators(self):
